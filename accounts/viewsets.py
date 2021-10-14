@@ -1,20 +1,28 @@
 import re
-from django.contrib.auth import authenticate
-from rest_framework.generics import get_object_or_404
-from rest_framework.viewsets import ModelViewSet
-from rest_framework.response import Response
-from rest_framework.decorators import action
-from rest_framework.status import HTTP_200_OK, HTTP_403_FORBIDDEN
+
+from django.contrib.auth import authenticate, login
 from django.db import transaction
+from rest_framework.authtoken.models import Token
+from rest_framework.decorators import action, permission_classes
+from rest_framework.generics import get_object_or_404
+from rest_framework.response import Response
+from rest_framework.status import HTTP_200_OK, HTTP_403_FORBIDDEN
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.permissions import IsAuthenticated
 from accounts.models import User
 from accounts.serializers import LoginSerializer, UserSerializer
-from rest_framework.authtoken.models import Token
-
 from accounts.usecases import user_login
+
 
 class UserViewSet(ModelViewSet):
     queryset = User.objects.all()
     serializer_class  = UserSerializer
+
+    def get_permissions(self):
+        if self.action == 'list':
+            return [IsAuthenticated()]
+        else:
+            return super().get_permissions()
 
     @transaction.atomic
     def register(self, request):
@@ -30,7 +38,8 @@ class UserViewSet(ModelViewSet):
         payload = user_data.data
         user = user_login(email=payload["email"], password=payload["password"])
         if user and user.is_active:
-            token, _ = Token.objects.create(user=user)
+            token, _ = Token.objects.get_or_create(user=user)
+            login(request=request, user=user)
             content = {
                 'token': token.key
             }
@@ -40,3 +49,7 @@ class UserViewSet(ModelViewSet):
                 "message": "E-mail ou senha não conferem"
             }
             return Response(data=content, status=HTTP_403_FORBIDDEN)
+
+    
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
