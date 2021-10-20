@@ -1,2 +1,5 @@
 Django==3.2
 djangorestframework==3.12
+pytest==6.2.5  
+pytest-django==4.4.0
+pytest-mock==3.6.1
